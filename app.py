@@ -4,6 +4,7 @@ from torchvision import transforms
 import torchvision.models as models
 from PIL import Image
 from torchvision import datasets
+from llm import talk_to_llm
 
 
 # Set device
@@ -35,6 +36,28 @@ def preprocess_image(image):
     ])
     return transform(image).unsqueeze(0).to(device)
 
+def predict_image(input_tensor, model):
+
+    model.eval()
+    with torch.no_grad():
+        output = model(input_tensor)
+        probabilities = torch.nn.functional.softmax(output[0], dim=0)
+    
+    # Get results
+    predicted_idx = torch.argmax(probabilities).item()
+    predicted_class = class_names[predicted_idx]
+    confidence = probabilities[predicted_idx].item()
+
+    return predicted_class, confidence
+
+def get_nutrients(predicted_class, compostition_dict):
+    
+    prompt = f"""from the given data extract the information of {predicted_class} food their nutrients compostion from the given dictionary.
+        {compostition_dict}
+        """
+    extracted_nutrients = talk_to_llm(prompt=prompt)
+    return extracted_nutrients
+
 
 # Streamlit app
 def main():
@@ -57,19 +80,13 @@ def main():
             # Preprocess
             input_tensor = preprocess_image(image)
             
-            # Predict
-            model.eval()
-            with torch.no_grad():
-                output = model(input_tensor)
-                probabilities = torch.nn.functional.softmax(output[0], dim=0)
-            
-            # Get results
-            predicted_idx = torch.argmax(probabilities).item()
-            predicted_class = class_names[predicted_idx]
-            confidence = probabilities[predicted_idx].item()
+            predicted_class, confidence = predict_image(input_tensor, model)
 
         # Display prediction
         st.success(f"Prediction: **{predicted_class}** with {confidence:.1%} confidence")
+        
+
+
 
 if __name__ == '__main__':
-    main()
+    food = main()
