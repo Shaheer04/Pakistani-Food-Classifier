@@ -1,13 +1,8 @@
 import pytesseract
 from pdf2image import convert_from_path
-import pandas as pd
-import re
-import numpy as np
-from tabulate import tabulate
 import time
 from llm import talk_to_llm
 import app
-
 
 start_time = time.perf_counter()
 def extract_nutrients_from_pdf(pdf_path):

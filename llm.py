@@ -5,7 +5,7 @@ hf_token = os.getenv("HF_TOKEN")
 
 
 client = InferenceClient(
-    "meta-llama/Meta-Llama-3-8B-Instruct",
+    "mistralai/Mistral-7B-Instruct-v0.3",
     token=hf_token,
 )
 
