@@ -9,7 +9,6 @@ from pymongo import MongoClient
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
 
 
 
@@ -185,46 +184,47 @@ def display_nutrition(data):
 
 # Streamlit app
 def main():
-    st.title("Food Classifier 🍟🍛")
-    st.write("Upload an image of french fries, BBQ, or biryani")
+    st.title("Foodie 🍟🍛")
+    col1,col2 = st.columns(2)
 
     # Load model once
     model = load_model()
 
-    # File uploader
-    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
-    
-    if uploaded_file is not None:
-        # Display the uploaded image
-        image = Image.open(uploaded_file)
-        st.image(image, caption='Uploaded Image', width=300)
-        
-        # Preprocess and predict
+    st.sidebar.subheader("Upload Image of Biryani, Fries or BBQ!")
+
+    uploaded_image = st.sidebar.file_uploader("",type=["jpg", "jpeg", "png"])
+                
+    if uploaded_image is not None:
         with st.spinner('Predicting...'):
-            # Preprocess
+            image = Image.open(uploaded_image)
+            st.sidebar.image(image,caption="Uploaded image", width=300) 
+
+
+        with st.spinner('Analyzing Image...'):
+
+            # Preprocess and predict
             input_tensor = preprocess_image(image)
-            
             predicted_class, confidence = predict_image(input_tensor, model)
 
-        # Display prediction
-        st.success(f"Prediction: **{predicted_class}** with {confidence:.1%} confidence")
+            st.success(f"Predicted Food Name: **{predicted_class}**")
+            st.progress(confidence, text=f"Confidence Score {confidence:.1%}")
 
-        with st.spinner("Searching database..."):
-            results = get_nutrition_data(predicted_class)
-            
-            if not results:
-                st.error("Food not found in database!")
-            else:
-                if results[0]['match_score'] > 1.5:
-                    display_nutrition(results[0])
+            with st.spinner("Searching database..."):
+                results = get_nutrition_data(predicted_class)
+                
+                if not results:
+                    st.error("Food not found in database!")
                 else:
-                    st.subheader(f"Found {len(results)} matches")
-                    selected = st.selectbox(
-                        "Select the best match:",
-                        options=results,
-                        format_func=lambda x: f"{x['name']} (confidence: {x['match_score']:.1f})"
-                    )
-                    display_nutrition(selected)
+                    if results[0]['match_score'] > 1.5:
+                        display_nutrition(results[0])
+                    else:
+                        st.info(f"Found {len(results)} matches")
+                        selected = st.selectbox(
+                            "Select the best match:",
+                            options=results,
+                            format_func=lambda x: f"{x['name']}"
+                        )
+                        display_nutrition(selected)
                
             
 if __name__ == '__main__':
