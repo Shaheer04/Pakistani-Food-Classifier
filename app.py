@@ -8,6 +8,7 @@ from llm import talk_to_llm
 from pymongo import MongoClient
 import os
 from dotenv import load_dotenv
+import matplotlib.pyplot as plt
 
 
 
@@ -99,132 +100,135 @@ def predict_image(input_tensor, model):
 
 def display_nutrition(data):
     # Display header information
-    st.subheader(f"🍴 {data['name']}")
-    st.caption(f"Serving Size: {data['servingSize']}")
+    st.header(f"🍴 {data['name']}")
+    st.subheader(f"Serving Size: {data['servingSize']}")
     
     # Create columns layout
     col1, col2, col3 = st.columns(3)
     
+    with st.expander("View Nutrition Breakdown!"):
     # Calories metric
-    col1.metric(
-        label="Calories",
-        value=data['calories']['amount'],
-        help="Total calories per serving"
-    )
-    
-    # Key Nutrients
-    with col2:
-        st.metric(
-            label="Total Fat",
-            value=data['nutrients']['Total Fat']['amount'],
-            delta=data['nutrients']['Total Fat']['dailyValue'],
-            delta_color="inverse",
-            help="Daily Value percentage"
+        col1.metric(
+            label="Calories",
+            value=data['calories']['amount'],
+            help="Total calories per serving"
         )
         
-    with col3:
-        st.metric(
-            label="Protein",
-            value=data['nutrients']['Protein']['amount'],
-            delta=data['nutrients']['Protein'].get('dailyValue', 'N/A'),
-            help="Protein content"
-        )
-    
-    # Second row of metrics
-    col4, col5, col6 = st.columns(3)
-    
-    with col4:
-        st.metric(
-            label="Carbohydrates",
-            value=data['nutrients']['Total Carbohydrates']['amount'],
-            delta=data['nutrients']['Total Carbohydrates']['dailyValue'],
-            delta_color="inverse"
-        )
+        # Key Nutrients
+        with col2:
+            st.metric(
+                label="Total Fat",
+                value=data['nutrients']['Total Fat']['amount'],
+                help="Daily Value percentage"
+            )
+            
+        with col3:
+            st.metric(
+                label="Protein",
+                value=data['nutrients']['Protein']['amount'],
+                help="Protein content"
+            )
         
-    with col5:
-        st.metric(
-            label="Sugars",
-            value=data['nutrients']['Sugars']['amount'],
-            delta=data['nutrients']['Sugars'].get('dailyValue', 'N/A')
-        )
+        # Second row of metrics
+        col4, col5, col6 = st.columns(3)
         
-    with col6:
-        st.metric(
-            label="Dietary Fiber",
-            value=data['nutrients']['Dietary Fiber']['amount'],
-            delta=data['nutrients']['Dietary Fiber']['dailyValue'],
-            delta_color="off"
-        )
-    
-    # Third row for vitamins/minerals
-    st.subheader("Vitamins & Minerals")
-    col7, col8, col9 = st.columns(3)
-    
-    with col7:
-        st.metric("Sodium", 
-                 data['nutrients']['Sodium']['amount'],
-                 data['nutrients']['Sodium']['dailyValue'],
-                 delta_color="inverse")
+        with col4:
+            st.metric(
+                label="Carbohydrates",
+                value=data['nutrients']['Total Carbohydrates']['amount'],
+            )
+            
+        with col5:
+            st.metric(
+                label="Sugars",
+                value=data['nutrients']['Sugars']['amount'],
+            )
+            
+        with col6:
+            st.metric(
+                label="Dietary Fiber",
+                value=data['nutrients']['Dietary Fiber']['amount'],
+               
+            )
         
-    with col8:
-        st.metric("Iron",
-                 data['nutrients']['Iron']['amount'],
-                 data['nutrients']['Iron']['dailyValue'],
-                 delta_color="off")
+        # Third row for vitamins/minerals
+        st.subheader("Vitamins & Minerals")
+        col7, col8, col9 = st.columns(3)
         
-    with col9:
-        st.metric("Calcium",
-                 data['nutrients']['Calcium']['amount'],
-                 data['nutrients']['Calcium']['dailyValue'],
-                 delta_color="off")
+        with col7:
+            st.metric("Sodium", 
+                    data['nutrients']['Sodium']['amount'],
+                    )
+            
+        with col8:
+            st.metric("Iron",
+                    data['nutrients']['Iron']['amount'],
+                    )
+            
+        with col9:
+            st.metric("Calcium",
+                    data['nutrients']['Calcium']['amount'],
+                    )
     
     # Add visual separator
     st.markdown("---")
 
 
+def create_nutrition_pie(data):
+    # Extract values
+    protein = float(data['nutrients']['Protein']['amount'].replace('g', ''))
+    carbs = float(data['nutrients']['Total Carbohydrates']['amount'].replace('g', ''))
+    fat = float(data['nutrients']['Total Fat']['amount'].replace('g', ''))
+    
+    # Calculate percentages
+    total = protein + carbs + fat
+    sizes = [protein/total*100, carbs/total*100, fat/total*100]
+    
+    # Create chart
+    fig, ax = plt.subplots()
+    ax.pie(sizes, 
+           labels=['Protein', 'Carbs', 'Fat'],
+           colors=['#ff9999','#66b3ff','#99ff99'],
+           autopct='%1.1f%%',
+           startangle=90)
+    ax.axis('equal')
+    
+    return fig
+
 # Streamlit app
 def main():
-    st.title("Foodie 🍟🍛")
-    col1,col2 = st.columns(2)
+    st.title("NutriScan")
+    st.info("Upload a food image, get its name and nutritional breakdown, and visualize macronutrients with an interactive pie chart, all in one place!")
 
     # Load model once
     model = load_model()
+    
+    st.sidebar.caption("Made with 💖 by Shaheer Jamal")
 
-    st.sidebar.subheader("Upload Image of Biryani, Fries or BBQ!")
-
-    uploaded_image = st.sidebar.file_uploader("",type=["jpg", "jpeg", "png"])
+    uploaded_image = st.sidebar.file_uploader("Upload Image of Biryani, Fries or BBQ!",type=["jpg", "jpeg", "png"])
                 
     if uploaded_image is not None:
-        with st.spinner('Predicting...'):
-            image = Image.open(uploaded_image)
-            st.sidebar.image(image,caption="Uploaded image", width=300) 
-
-
+        image = Image.open(uploaded_image)
+        st.sidebar.image(image,caption="Uploaded image", width=300) 
+        # Preprocess and predict
+        input_tensor = preprocess_image(image)
+        predicted_class, confidence = predict_image(input_tensor, model)
         with st.spinner('Analyzing Image...'):
-
-            # Preprocess and predict
-            input_tensor = preprocess_image(image)
-            predicted_class, confidence = predict_image(input_tensor, model)
-
-            st.success(f"Predicted Food Name: **{predicted_class}**")
+            st.caption("Predicted Food Name")
+            st.success(f"**{predicted_class}**")
             st.progress(confidence, text=f"Confidence Score {confidence:.1%}")
 
-            with st.spinner("Searching database..."):
-                results = get_nutrition_data(predicted_class)
-                
-                if not results:
-                    st.error("Food not found in database!")
-                else:
-                    if results[0]['match_score'] > 1.5:
-                        display_nutrition(results[0])
-                    else:
-                        st.info(f"Found {len(results)} matches")
-                        selected = st.selectbox(
-                            "Select the best match:",
-                            options=results,
-                            format_func=lambda x: f"{x['name']}"
-                        )
-                        display_nutrition(selected)
+        with st.spinner("Searching database..."):
+            results = get_nutrition_data(predicted_class)
+            
+            if not results:
+                st.error("Food not found in database!")
+            else:
+                if results:
+                    display_nutrition(results[0])
+        
+                    with st.expander("Visualize Macro Nutrients!"):
+                        st.pyplot(create_nutrition_pie(results[0]))
                
             
 if __name__ == '__main__':
